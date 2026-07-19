@@ -1,84 +1,79 @@
 class Mapper:
     """
-    集数映射器
+    集数映射引擎
+
+    根据原始交付和拆集交付
+    生成最终集数编号
     """
+
 
 
     def generate(self, project):
 
+
         mapping = {}
 
-        new_index = 1
+        index = 1
 
 
-        # 默认按照原集顺序
 
-        original = {}
+        # 获取原始集数
+
+        original_numbers = set()
 
 
-        for version, episodes in project.videos.items():
+        for episodes in project.original_videos.values():
 
             for ep in episodes:
 
-                key = ep.original_episode
-
-
-                if key not in original:
-
-                    original[key] = []
-
-
-                original[key].append(ep)
-
-
-
-        # 排序原始集数
-
-        for old_ep in sorted(original.keys()):
-
-
-            items = original[old_ep]
-
-
-            # 有拆集
-
-            parts = [
-                x for x in items
-                if x.part > 0
-            ]
-
-
-            if parts:
-
-                parts.sort(
-                    key=lambda x:x.part
+                original_numbers.add(
+                    ep.original_episode
                 )
 
 
-                for p in parts:
 
-                    mapping[new_index] = (
-                        f"{old_ep:02d}-{p.part}"
+        # 按原始集数排序
+
+        for old_ep in sorted(original_numbers):
+
+
+            # 判断是否拆集
+
+            if old_ep in project.split_map:
+
+
+                parts = sorted(
+                    project.split_map[old_ep]
+                )
+
+
+                for part in parts:
+
+
+                    mapping[index] = (
+                        f"{old_ep:02d}-{part}"
                     )
 
-                    new_index += 1
+                    index += 1
+
 
 
             else:
 
 
-                mapping[new_index] = (
+                mapping[index] = (
                     f"{old_ep:02d}"
                 )
 
-                new_index += 1
+                index += 1
 
 
 
         project.episode_mapping = mapping
 
-        project.final_count = (
-            len(mapping)
+
+        project.final_count = len(
+            mapping
         )
 
 
