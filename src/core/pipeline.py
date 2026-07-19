@@ -9,6 +9,8 @@ from src.core.report import Report
 
 
 class Pipeline:
+
+
     """
     DramaTool 自动整理流程
 
@@ -30,9 +32,11 @@ class Pipeline:
 
     def __init__(self, project_path):
 
+
         self.project_path = Path(
             project_path
         )
+
 
         self.project = None
 
@@ -42,27 +46,35 @@ class Pipeline:
 
         self.output_path = None
 
+        self.report_path = None
+
 
 
 
 
     def run(self):
 
-        print("=" * 50)
-
-        print("DramaTool 自动整理")
 
         print("=" * 50)
 
+        print(
+            "DramaTool 自动整理"
+        )
+
+        print("=" * 50)
 
 
-        # ==========================
-        # 1. 分析项目
-        # ==========================
+
+        # ======================
+        # 分析项目
+        # ======================
+
 
         print()
 
-        print("开始分析项目...")
+        print(
+            "开始分析项目..."
+        )
 
 
         analyzer = Analyzer(
@@ -75,8 +87,9 @@ class Pipeline:
         self.project = analyzer.analyze()
 
 
-
-        print("分析完成")
+        print(
+            "分析完成"
+        )
 
 
         print(
@@ -97,15 +110,16 @@ class Pipeline:
 
 
 
+        # ======================
+        # 生成映射
+        # ======================
 
-
-        # ==========================
-        # 2. 集数映射
-        # ==========================
 
         print()
 
-        print("生成集数映射...")
+        print(
+            "生成集数映射..."
+        )
 
 
         mapper = Mapper()
@@ -118,21 +132,24 @@ class Pipeline:
         )
 
 
-        print("映射完成")
+        print(
+            "映射完成"
+        )
 
 
 
 
 
+        # ======================
+        # 检查项目
+        # ======================
 
-
-        # ==========================
-        # 3. 检查
-        # ==========================
 
         print()
 
-        print("检查项目...")
+        print(
+            "检查项目..."
+        )
 
 
         checker = Checker()
@@ -145,31 +162,99 @@ class Pipeline:
         )
 
 
-        print("检查完成")
+        print(
+            "检查完成"
+        )
+
+
+
+        # ======================
+        # 有错误停止
+        # ======================
+
+
+        if self.check_result["errors"]:
+
+
+            print()
+
+            print(
+                "================"
+            )
+
+            print(
+                "发现错误，停止整理"
+            )
+
+            print(
+                "================"
+            )
+
+
+            for error in self.check_result["errors"]:
+
+
+                print()
+
+                print(
+                    "版本:",
+                    error.get(
+                        "version"
+                    )
+                )
+
+
+                print(
+                    "缺少:",
+                    error.get(
+                        "missing"
+                    )
+                )
+
+
+            return {
+
+
+                "project":
+                self.project,
+
+
+                "mapping":
+                self.mapping,
+
+
+                "check":
+                self.check_result,
+
+
+                "output":
+                None,
+
+
+                "report":
+                None
+
+            }
 
 
 
 
 
 
+        # ======================
+        # 文件整理
+        # ======================
 
-        # ==========================
-        # 4. 整理输出
-        # ==========================
 
         print()
 
-        print("开始整理文件...")
+        print(
+            "开始整理文件..."
+        )
 
 
         merger = Merger()
 
-
-        # 注意：
-        # 当前 Merger.merge()
-        # 只接收 project
-        #
-        # 不传 mapping
 
         self.output_path = merger.merge(
 
@@ -178,76 +263,60 @@ class Pipeline:
         )
 
 
-
         print()
 
-        print("整理完成:")
+        print(
+            "整理完成:"
+        )
 
 
         print(
-
             self.output_path
-
         )
 
 
 
 
 
+        # ======================
+        # 生成报告
+        # ======================
 
-
-        # ==========================
-        # 5. 生成报告
-        # ==========================
 
         print()
 
-        print("生成报告...")
-
-
-        report = Report(
-
-            self.output_path
-
+        print(
+            "生成报告..."
         )
 
 
-        report_path = report.generate(
+        report = Report()
+
+
+        self.report_path = report.generate(
 
             self.project,
 
+            self.mapping,
+
             self.check_result,
 
-            self.mapping
+            self.output_path
 
         )
 
 
-
         print()
 
-        print("报告生成完成:")
+        print(
+            "报告生成完成:"
+        )
 
 
         print(
-
-            report_path
-
+            self.report_path
         )
 
-
-
-
-
-
-
-        print()
-
-        print("=" * 50)
-
-        print("全部完成")
-
-        print("=" * 50)
 
 
 
@@ -255,27 +324,22 @@ class Pipeline:
 
 
             "project":
-
             self.project,
 
 
             "mapping":
-
             self.mapping,
 
 
             "check":
-
             self.check_result,
 
 
             "output":
-
             self.output_path,
 
 
             "report":
-
-            report_path
+            self.report_path
 
         }

@@ -1,31 +1,4 @@
 class Checker:
-    """
-    DramaTool 项目检查器 V2
-
-    检查内容：
-
-    1. 各视频版本完整性
-    2. 字幕完整性
-    3. 拆集关系正确性
-
-    返回统一数据结构：
-
-    {
-        errors: [],
-        warnings: [],
-        success: []
-    }
-
-    每条记录：
-
-    {
-        level,
-        version,
-        type,
-        files
-    }
-
-    """
 
 
     VIDEO_VERSIONS = [
@@ -39,7 +12,9 @@ class Checker:
     ]
 
 
+
     SUBTITLE_VERSION = "3.字幕文件"
+
 
 
 
@@ -57,21 +32,31 @@ class Checker:
         }
 
 
+
         self.check_versions(
+
             project,
+
             result
+
         )
 
 
-        self.check_subtitles(
+        self.check_subtitle(
+
             project,
+
             result
+
         )
 
 
         self.check_split(
+
             project,
+
             result
+
         )
 
 
@@ -79,48 +64,35 @@ class Checker:
 
 
 
-    # =================================
-    # 检查视频版本
-    # =================================
+
+
 
     def check_versions(
-            self,
-            project,
-            result
+
+        self,
+
+        project,
+
+        result
+
     ):
 
 
         standard = set(
+
             range(
+
                 1,
+
                 project.original_count + 1
+
             )
+
         )
 
 
+
         for version in self.VIDEO_VERSIONS:
-
-
-            if version not in project.original_videos:
-
-
-                result["errors"].append({
-
-                    "level":
-                    "error",
-
-                    "version":
-                    version,
-
-                    "type":
-                    "missing_version",
-
-                    "files":
-                    []
-
-                })
-
-                continue
 
 
 
@@ -128,216 +100,201 @@ class Checker:
 
 
 
-            for ep in project.original_videos[version]:
+            files = project.original_videos.get(
+
+                version,
+
+                []
+
+            )
+
+
+
+            for ep in files:
+
 
                 current.add(
+
                     ep.original_episode
+
                 )
 
 
 
-            missing = (
-                standard
-                -
-                current
+
+            missing = sorted(
+
+                standard - current
+
             )
+
 
 
 
             if missing:
 
 
-                files = []
+                result["errors"].append(
+
+                    {
+
+                        "type":
+                        "missing_video",
 
 
-                for ep in sorted(missing):
-
-                    files.append(
-                        f"{ep:02d}.mp4"
-                    )
+                        "version":
+                        version,
 
 
+                        "missing":
+                        missing
 
-                result["errors"].append({
+                    }
 
-                    "level":
-                    "error",
-
-                    "version":
-                    version,
-
-                    "type":
-                    "missing",
-
-                    "files":
-                    files
-
-                })
+                )
 
 
             else:
 
 
-                result["success"].append({
+                result["success"].append(
 
-                    "level":
-                    "success",
+                    f"{version}:完整"
 
-                    "version":
-                    version,
-
-                    "type":
-                    "complete"
-
-                })
+                )
 
 
 
 
-    # =================================
-    # 检查字幕
-    # =================================
 
-    def check_subtitles(
-            self,
-            project,
-            result
+
+
+    def check_subtitle(
+
+        self,
+
+        project,
+
+        result
+
     ):
-
-
-        if self.SUBTITLE_VERSION not in project.original_videos:
-
-
-            result["warnings"].append({
-
-                "level":
-                "warning",
-
-                "version":
-                self.SUBTITLE_VERSION,
-
-                "type":
-                "missing_version",
-
-                "files":
-                []
-
-            })
-
-
-            return
-
 
 
         standard = set(
 
             range(
+
                 1,
+
                 project.original_count + 1
+
             )
 
         )
-
 
 
         current = set()
 
 
 
-        for ep in project.original_videos[
-            self.SUBTITLE_VERSION
-        ]:
+        files = project.original_videos.get(
+
+            self.SUBTITLE_VERSION,
+
+            []
+
+        )
+
+
+
+        for ep in files:
 
 
             current.add(
+
                 ep.original_episode
+
             )
 
 
 
-        missing = (
 
-            standard
-            -
-            current
+        missing = sorted(
+
+            standard - current
 
         )
+
 
 
 
         if missing:
 
 
-            files = []
+            result["warnings"].append(
+
+                {
+
+                    "type":
+
+                    "missing_subtitle",
 
 
-            for ep in sorted(missing):
+                    "version":
 
-                files.append(
-                    f"{ep:02d}.srt"
-                )
+                    self.SUBTITLE_VERSION,
 
 
+                    "missing":
 
-            result["warnings"].append({
+                    missing
 
-                "level":
-                "warning",
+                }
 
-                "version":
-                self.SUBTITLE_VERSION,
-
-                "type":
-                "missing",
-
-                "files":
-                files
-
-            })
+            )
 
 
         else:
 
 
-            result["success"].append({
+            result["success"].append(
 
-                "level":
-                "success",
+                f"{self.SUBTITLE_VERSION}:完整"
 
-                "version":
-                self.SUBTITLE_VERSION,
-
-                "type":
-                "complete"
-
-            })
+            )
 
 
 
 
-    # =================================
-    # 检查拆集关系
-    # =================================
+
+
 
     def check_split(
-            self,
-            project,
-            result
+
+        self,
+
+        project,
+
+        result
+
     ):
 
 
         for ep, parts in project.split_map.items():
 
 
-            parts = sorted(parts)
+            parts.sort()
 
 
 
             expected = list(
 
                 range(
+
                     1,
+
                     len(parts)+1
+
                 )
 
             )
@@ -347,21 +304,25 @@ class Checker:
             if parts != expected:
 
 
-                result["warnings"].append({
+                result["warnings"].append(
 
-                    "level":
-                    "warning",
+                    {
 
-                    "version":
-                    "拆集关系",
 
-                    "type":
-                    "split_error",
+                        "type":
 
-                    "files":[
+                        "split_error",
 
-                        f"{ep:02d}拆分异常:{parts}"
 
-                    ]
+                        "version":
 
-                })
+                        "拆集关系",
+
+
+                        "missing":
+
+                        f"第{ep}集拆分异常"
+
+                    }
+
+                )
