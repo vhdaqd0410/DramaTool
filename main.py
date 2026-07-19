@@ -29,8 +29,12 @@ class DramaToolApp:
 
         self.output_path = None
 
+        self.error_folder = None
+
 
         self.create_ui()
+
+
 
 
 
@@ -86,7 +90,6 @@ class DramaToolApp:
 
 
 
-
         self.start_btn = tk.Button(
 
             self.root,
@@ -107,7 +110,6 @@ class DramaToolApp:
             pady=10
 
         )
-
 
 
 
@@ -142,7 +144,6 @@ class DramaToolApp:
 
 
         self.status.pack()
-
 
 
 
@@ -231,7 +232,7 @@ class DramaToolApp:
 
                 tk.END,
 
-                message + "\n"
+                message+"\n"
 
             )
 
@@ -329,34 +330,14 @@ class DramaToolApp:
 
 
 
-            if result["output"]:
+            # =====================
+            # 检查失败
+            # =====================
+
+            if not result["output"]:
 
 
-                self.output_path = result["output"]
-
-
-
-                self.write_log(
-
-                    "整理成功",
-
-                    100
-
-                )
-
-
-
-                self.root.after(
-
-                    0,
-
-                    self.show_complete_window
-
-                )
-
-
-
-            else:
+                errors = result["check"]["errors"]
 
 
                 self.root.after(
@@ -365,15 +346,36 @@ class DramaToolApp:
 
                     lambda:
 
-                    messagebox.showwarning(
+                    self.show_error_window(
 
-                        "整理失败",
-
-                        "项目检查未通过，请查看日志"
+                        errors
 
                     )
 
                 )
+
+
+                return
+
+
+
+
+
+            # =====================
+            # 成功
+            # =====================
+
+
+            self.output_path = result["output"]
+
+
+            self.root.after(
+
+                0,
+
+                self.show_complete_window
+
+            )
 
 
 
@@ -395,7 +397,6 @@ class DramaToolApp:
                 )
 
             )
-
 
 
         finally:
@@ -423,7 +424,14 @@ class DramaToolApp:
 
 
 
-    def show_complete_window(self):
+
+    def show_error_window(
+
+            self,
+
+            errors
+
+    ):
 
 
         win = tk.Toplevel(
@@ -435,25 +443,56 @@ class DramaToolApp:
 
         win.title(
 
-            "整理完成"
+            "检查未通过"
 
         )
 
 
         win.geometry(
 
-            "500x220"
+            "500x300"
 
         )
 
 
-        win.resizable(
 
-            False,
+        text = ""
 
-            False
 
-        )
+        folder = None
+
+
+
+        for item in errors:
+
+
+            version = item["version"]
+
+
+            missing = item["missing"]
+
+
+            text += (
+
+                f"版本:{version}\n"
+
+                f"缺少:{missing}\n\n"
+
+            )
+
+
+            folder = os.path.join(
+
+                self.project_path,
+
+                version
+
+            )
+
+
+
+        self.error_folder = folder
+
 
 
 
@@ -461,7 +500,7 @@ class DramaToolApp:
 
             win,
 
-            text="✅ 整理完成！",
+            text="❌ 检查未通过",
 
             font=(
 
@@ -483,27 +522,19 @@ class DramaToolApp:
 
             win,
 
-            text=self.output_path,
+            text=text,
 
-            wraplength=450
+            justify="left"
 
-        ).pack(
-
-            pady=10
-
-        )
+        ).pack()
 
 
 
 
-        btn_frame = tk.Frame(
 
-            win
+        frame=tk.Frame(win)
 
-        )
-
-
-        btn_frame.pack(
+        frame.pack(
 
             pady=20
 
@@ -514,19 +545,13 @@ class DramaToolApp:
 
         tk.Button(
 
-            btn_frame,
+            frame,
 
             text="打开目录",
 
             width=15,
 
-            command=lambda:
-
-            os.startfile(
-
-                self.output_path
-
-            )
+            command=self.open_error_folder
 
         ).pack(
 
@@ -538,11 +563,9 @@ class DramaToolApp:
 
 
 
-
-
         tk.Button(
 
-            btn_frame,
+            frame,
 
             text="关闭",
 
@@ -563,17 +586,127 @@ class DramaToolApp:
 
 
 
-if __name__ == "__main__":
 
 
-    root = tk.Tk()
+    def open_error_folder(self):
 
 
-    app = DramaToolApp(
+        if self.error_folder and os.path.exists(
 
-        root
+                self.error_folder
 
-    )
+        ):
+
+
+            os.startfile(
+
+                self.error_folder
+
+            )
+
+
+
+
+
+
+
+
+    def show_complete_window(self):
+
+
+        win=tk.Toplevel(
+
+            self.root
+
+        )
+
+
+        win.title(
+
+            "整理完成"
+
+        )
+
+
+        win.geometry(
+
+            "500x220"
+
+        )
+
+
+
+        tk.Label(
+
+            win,
+
+            text="✅ 整理完成",
+
+            font=(
+
+                "Microsoft YaHei",
+
+                18
+
+            )
+
+        ).pack(
+
+            pady=20
+
+        )
+
+
+
+        tk.Button(
+
+            win,
+
+            text="打开目录",
+
+            width=15,
+
+            command=lambda:
+
+            os.startfile(
+
+                self.output_path
+
+            )
+
+        ).pack(
+
+            pady=10
+
+        )
+
+
+
+        tk.Button(
+
+            win,
+
+            text="关闭",
+
+            width=15,
+
+            command=win.destroy
+
+        ).pack()
+
+
+
+
+
+
+
+if __name__=="__main__":
+
+
+    root=tk.Tk()
+
+
+    app=DramaToolApp(root)
 
 
     root.mainloop()
