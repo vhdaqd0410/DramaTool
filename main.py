@@ -47,71 +47,116 @@ class DramaToolApp:
 
 
         self.path_label = tk.Label(
+
             top,
+
             text="请选择项目",
+
             width=70
+
         )
 
         self.path_label.pack(
+
             side=tk.LEFT,
+
             padx=10
+
         )
 
 
         tk.Button(
+
             top,
+
             text="选择项目",
+
             command=self.select_project
+
         ).pack(
+
             side=tk.LEFT
+
         )
 
 
 
         self.start_btn = tk.Button(
+
             self.root,
+
             text="开始整理",
+
             width=20,
+
             height=2,
+
             command=self.start
+
         )
 
+
         self.start_btn.pack(
+
             pady=10
+
         )
+
 
 
 
         self.progress = ttk.Progressbar(
+
             self.root,
+
             length=700,
+
             mode="determinate"
+
         )
 
+
         self.progress.pack(
+
             pady=10
+
         )
+
 
 
         self.status = tk.Label(
+
             self.root,
+
             text="等待操作"
+
         )
+
 
         self.status.pack()
 
 
 
+
         self.log_box = tk.Text(
+
             self.root,
+
             height=25
+
         )
 
+
         self.log_box.pack(
+
             fill=tk.BOTH,
+
             expand=True,
+
             padx=20,
+
             pady=10
+
         )
 
 
@@ -129,11 +174,14 @@ class DramaToolApp:
 
         if path:
 
+
             self.project_path = path
 
 
             self.path_label.config(
+
                 text=path
+
             )
 
 
@@ -145,9 +193,13 @@ class DramaToolApp:
 
 
     def write_log(
+
             self,
+
             message,
+
             progress=None
+
     ):
 
 
@@ -161,25 +213,35 @@ class DramaToolApp:
 
 
                 self.status.config(
+
                     text=f"当前进度:{progress}%"
+
                 )
 
 
 
             self.log_box.insert(
+
                 tk.END,
-                message + "\n"
+
+                message+"\n"
+
             )
 
 
             self.log_box.see(
+
                 tk.END
+
             )
 
 
         self.root.after(
+
             0,
+
             update
+
         )
 
 
@@ -197,8 +259,11 @@ class DramaToolApp:
 
 
             messagebox.showwarning(
+
                 "提示",
+
                 "请先选择项目"
+
             )
 
             return
@@ -206,23 +271,29 @@ class DramaToolApp:
 
 
         self.start_btn.config(
+
             state=tk.DISABLED
+
         )
 
 
-        self.progress["value"] = 0
+        self.progress["value"]=0
 
 
         self.log_box.delete(
+
             "1.0",
+
             tk.END
+
         )
 
 
         threading.Thread(
-            target=self.run_pipeline
-        ).start()
 
+            target=self.run_pipeline
+
+        ).start()
 
 
 
@@ -293,6 +364,7 @@ class DramaToolApp:
 
 
 
+
         except Exception as e:
 
 
@@ -311,6 +383,7 @@ class DramaToolApp:
                 )
 
             )
+
 
 
         finally:
@@ -357,7 +430,7 @@ class DramaToolApp:
 
         win.geometry(
 
-            "650x550"
+            "700x600"
 
         )
 
@@ -398,15 +471,7 @@ class DramaToolApp:
 
             win,
 
-            text="请补充以下缺失文件后重新运行",
-
-            font=(
-
-                "Microsoft YaHei",
-
-                10
-
-            )
+            text="请补充缺失文件后重新运行",
 
         ).pack()
 
@@ -414,14 +479,68 @@ class DramaToolApp:
 
 
 
-        container = tk.Frame(
+        canvas = tk.Canvas(
 
             win
 
         )
 
 
-        container.pack(
+        scrollbar = tk.Scrollbar(
+
+            win,
+
+            orient=tk.VERTICAL,
+
+            command=canvas.yview
+
+        )
+
+
+        container = tk.Frame(
+
+            canvas
+
+        )
+
+
+        container.bind(
+
+            "<Configure>",
+
+            lambda e:
+
+            canvas.configure(
+
+                scrollregion=canvas.bbox("all")
+
+            )
+
+        )
+
+
+        canvas.create_window(
+
+            (0,0),
+
+            window=container,
+
+            anchor="nw"
+
+        )
+
+
+        canvas.configure(
+
+            yscrollcommand=scrollbar.set
+
+        )
+
+
+
+        canvas.pack(
+
+            side=tk.LEFT,
 
             fill=tk.BOTH,
 
@@ -432,6 +551,17 @@ class DramaToolApp:
             pady=10
 
         )
+
+
+        scrollbar.pack(
+
+            side=tk.RIGHT,
+
+            fill=tk.Y
+
+        )
+
+
 
 
 
@@ -462,9 +592,9 @@ class DramaToolApp:
 
                 container,
 
-                text=version,
+                text=f"版本:{version}",
 
-                padx=10,
+                padx=15,
 
                 pady=10
 
@@ -475,7 +605,7 @@ class DramaToolApp:
 
                 fill=tk.X,
 
-                pady=8
+                pady=10
 
             )
 
@@ -485,9 +615,7 @@ class DramaToolApp:
 
                 frame,
 
-                text=f"缺少集数: {missing}",
-
-                anchor="w"
+                text=f"缺少数量:{len(missing)} 集"
 
             ).pack(
 
@@ -497,7 +625,34 @@ class DramaToolApp:
 
 
 
-            folder = os.path.join(
+            text=""
+
+
+            for ep in missing:
+
+
+                text += f"第{ep}集\n"
+
+
+
+            tk.Label(
+
+                frame,
+
+                text="缺少:\n"+text,
+
+                justify="left"
+
+            ).pack(
+
+                anchor="w"
+
+            )
+
+
+
+
+            folder=os.path.join(
 
                 self.project_path,
 
@@ -513,6 +668,8 @@ class DramaToolApp:
 
                 text="打开该版本目录",
 
+                width=20,
+
                 command=lambda p=folder:
 
                 self.open_folder(p)
@@ -522,6 +679,7 @@ class DramaToolApp:
                 pady=5
 
             )
+
 
 
 
@@ -551,7 +709,7 @@ class DramaToolApp:
 
 
 
-    def open_folder(self, path):
+    def open_folder(self,path):
 
 
         if os.path.exists(path):
@@ -562,7 +720,6 @@ class DramaToolApp:
                 path
 
             )
-
 
         else:
 
@@ -586,7 +743,7 @@ class DramaToolApp:
     def show_complete_window(self):
 
 
-        win = tk.Toplevel(
+        win=tk.Toplevel(
 
             self.root
 
@@ -683,14 +840,13 @@ class DramaToolApp:
 
 
 
-
-if __name__ == "__main__":
-
-
-    root = tk.Tk()
+if __name__=="__main__":
 
 
-    app = DramaToolApp(root)
+    root=tk.Tk()
+
+
+    app=DramaToolApp(root)
 
 
     root.mainloop()
