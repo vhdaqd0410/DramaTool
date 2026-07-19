@@ -1,246 +1,600 @@
-from datetime import datetime
 from pathlib import Path
+import json
+from datetime import datetime
 
 
 
 class Report:
-
     """
-    DramaTool 整理报告生成器
+    DramaTool 报告生成器
 
     输出:
-        DramaTool报告.txt
+
+    report/
+        report.html
+        report.json
 
     """
 
 
-    def __init__(self):
 
-        pass
+    def __init__(self, output_path):
+
+        self.output_path = Path(output_path)
+
+        self.report_path = (
+            self.output_path
+            /
+            "report"
+        )
+
+        self.report_path.mkdir(
+            exist_ok=True
+        )
 
 
 
     def generate(
-
             self,
-
             project,
-
-            output_path
-
+            check_result=None,
+            mapping=None
     ):
 
-
-        output_path = Path(
-            output_path
+        data = self.build_data(
+            project,
+            check_result,
+            mapping
         )
 
-
-        report_file = (
-
-            output_path
-
-            /
-
-            "DramaTool报告.txt"
-
+        self.save_json(
+            data
         )
 
-
-
-        content = []
-
-
-        content.append(
-
-            "DramaTool 整理报告"
-
+        self.save_html(
+            data
         )
 
-
-        content.append(
-
-            "=" * 30
-
-        )
-
-
-        content.append("")
+        return self.report_path
 
 
 
-        # 项目信息
-
-        content.append(
-
-            f"项目:\n{project.name}"
-
-        )
 
 
-        content.append("")
+    def build_data(
+            self,
+            project,
+            check_result=None,
+            mapping=None
+    ):
 
+        data = {
 
+            "project": {
 
-        content.append(
+                "name":
+                project.name,
 
-            f"原始集数:\n{project.original_count}"
+                "original_count":
+                project.original_count,
 
-        )
+                "final_count":
+                project.final_count,
 
+                "split_count":
+                len(project.split_map),
 
-        content.append(
-
-            f"最终集数:\n{project.final_count}"
-
-        )
-
-
-
-        content.append("")
-
-        content.append(
-
-            "拆集记录:"
-
-        )
-
-        content.append("")
-
-
-
-        # 拆集关系
-
-        if project.split_map:
-
-
-            for episode, parts in project.split_map.items():
-
-
-                content.append(
-
-                    f"第{episode:02d}集:"
-
+                "time":
+                datetime.now().strftime(
+                    "%Y-%m-%d %H:%M:%S"
                 )
 
+            },
 
-                for part in parts:
+
+            "versions": {},
 
 
-                    content.append(
+            "mapping": [],
 
-                        f"    {episode:02d}-{part}"
+
+            "check":
+            check_result
+
+        }
+
+
+
+        # ==========================
+        # 版本统计
+        # ==========================
+
+        versions = {}
+
+
+        for name, files in project.original_videos.items():
+
+            versions[name] = len(files)
+
+
+
+        for name, files in project.split_videos.items():
+
+            if name not in versions:
+
+                versions[name] = 0
+
+
+            versions[name] += len(files)
+
+
+
+        data["versions"] = versions
+
+
+
+
+
+        # ==========================
+        # 集数映射
+        # ==========================
+
+        result_mapping = []
+
+
+
+        if mapping:
+
+
+            # 当前 Mapper 返回:
+            #
+            # {
+            #    1:"01",
+            #    2:"02",
+            #    3:"03-1"
+            # }
+            #
+
+            if isinstance(mapping, dict):
+
+
+                for final, source in mapping.items():
+
+
+                    result_mapping.append(
+
+                        {
+
+                            "final":
+
+                            str(final).zfill(2),
+
+
+                            "source":
+
+                            source
+
+                        }
 
                     )
 
 
-                content.append("")
+
+            # 兼容未来列表结构
+            #
+            # [
+            #   {
+            #       final:"01",
+            #       source:"01"
+            #   }
+            # ]
+
+            else:
 
 
-        else:
+                for item in mapping:
 
 
-            content.append(
+                    result_mapping.append(
 
-                "无拆集"
+                        {
 
-            )
+                            "final":
 
-
-
-        content.append("")
-
-        content.append(
-
-            "最终生成映射:"
-
-        )
-
-        content.append("")
+                            item["final"],
 
 
+                            "source":
 
-        # 最终编号
+                            item["source"]
 
-        for index, source in project.episode_mapping.items():
+                        }
 
-
-            content.append(
-
-                f"{index:02d} ← {source}"
-
-            )
+                    )
 
 
 
-        content.append("")
-
-        content.append(
-
-            "文件统计:"
-
-        )
-
-
-        content.append("")
+        data["mapping"] = result_mapping
 
 
 
-        for version in project.original_videos.keys():
-
-
-            count = len(
-
-                project.original_videos[version]
-
-            )
-
-
-            content.append(
-
-                f"{version}: {count}个"
-
-            )
+        return data
 
 
 
-        content.append("")
 
-        content.append(
 
-            "生成时间:"
+
+    def save_json(
+            self,
+            data
+    ):
+
+
+        file = (
+
+            self.report_path
+            /
+            "report.json"
 
         )
 
 
-        content.append(
+        with open(
 
-            datetime.now().strftime(
+            file,
 
-                "%Y-%m-%d %H:%M:%S"
-
-            )
-
-        )
-
-
-
-        report_file.write_text(
-
-            "\n".join(content),
+            "w",
 
             encoding="utf-8"
 
+        ) as f:
+
+
+            json.dump(
+
+                data,
+
+                f,
+
+                ensure_ascii=False,
+
+                indent=4
+
+            )
+
+
+
+
+
+
+    def save_html(
+            self,
+            data
+    ):
+
+
+        html = []
+
+
+
+        html.append(
+
+"""
+
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8">
+
+
+<title>
+
+DramaTool整理报告
+
+</title>
+
+
+<style>
+
+body{
+
+font-family:
+
+Microsoft YaHei;
+
+padding:30px;
+
+}
+
+
+table{
+
+border-collapse:
+
+collapse;
+
+width:900px;
+
+}
+
+
+td,th{
+
+border:
+
+1px solid #ccc;
+
+padding:8px;
+
+}
+
+
+h1{
+
+color:#333;
+
+}
+
+</style>
+
+
+</head>
+
+
+<body>
+
+
+<h1>
+
+DramaTool 整理报告
+
+</h1>
+
+"""
+
         )
 
 
-        print(
 
-            "报告生成:",
 
-            report_file
+
+        project = data["project"]
+
+
+
+        html.append(
+
+f"""
+
+<h2>
+项目概览
+</h2>
+
+
+<p>
+项目:
+{project['name']}
+</p>
+
+
+<p>
+原始集数:
+{project['original_count']}
+</p>
+
+
+<p>
+最终集数:
+{project['final_count']}
+</p>
+
+
+<p>
+生成时间:
+{project['time']}
+</p>
+
+
+"""
 
         )
 
 
-        return report_file
+
+
+
+
+
+        # ==========================
+        # 版本统计
+        # ==========================
+
+
+        html.append(
+
+"""
+
+<h2>
+版本统计
+</h2>
+
+
+<table>
+
+
+<tr>
+
+<th>
+版本
+</th>
+
+<th>
+数量
+</th>
+
+</tr>
+
+"""
+
+        )
+
+
+
+        for name,count in data["versions"].items():
+
+
+            html.append(
+
+f"""
+
+<tr>
+
+<td>
+{name}
+</td>
+
+
+<td>
+{count}
+</td>
+
+
+</tr>
+
+"""
+
+            )
+
+
+
+        html.append(
+
+"""
+
+</table>
+
+"""
+
+        )
+
+
+
+
+
+
+
+        # ==========================
+        # 集数映射
+        # ==========================
+
+
+        html.append(
+
+"""
+
+<h2>
+集数映射
+</h2>
+
+
+<table>
+
+
+<tr>
+
+<th>
+最终集
+</th>
+
+
+<th>
+来源
+</th>
+
+
+</tr>
+
+"""
+
+        )
+
+
+
+
+
+        for item in data["mapping"]:
+
+
+            html.append(
+
+f"""
+
+<tr>
+
+<td>
+{item['final']}
+</td>
+
+
+<td>
+{item['source']}
+</td>
+
+
+</tr>
+
+"""
+
+            )
+
+
+
+        html.append(
+
+"""
+
+</table>
+
+
+</body>
+
+
+</html>
+
+"""
+
+        )
+
+
+
+
+
+        file = (
+
+            self.report_path
+            /
+            "report.html"
+
+        )
+
+
+        with open(
+
+            file,
+
+            "w",
+
+            encoding="utf-8"
+
+        ) as f:
+
+
+            f.write(
+
+                "".join(html)
+
+            )
