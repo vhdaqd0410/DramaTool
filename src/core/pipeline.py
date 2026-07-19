@@ -11,42 +11,56 @@ from src.core.report import Report
 class Pipeline:
 
 
-    """
-    DramaTool 自动整理流程
-
-    流程:
-
-    Analyzer
-        ↓
-    Mapper
-        ↓
-    Checker
-        ↓
-    Merger
-        ↓
-    Report
-
-    """
-
-
-
-    def __init__(self, project_path):
-
+    def __init__(
+            self,
+            project_path,
+            callback=None
+    ):
 
         self.project_path = Path(
             project_path
         )
 
-
-        self.project = None
-
-        self.mapping = None
-
-        self.check_result = None
-
         self.output_path = None
 
         self.report_path = None
+
+        # GUI消息回调
+        self.callback = callback
+
+
+
+
+
+    def log(
+            self,
+            message,
+            progress=None
+    ):
+
+        """
+        输出日志
+
+        callback:
+        message
+        progress
+        """
+
+        print(message)
+
+
+        if self.callback:
+
+
+            self.callback(
+
+                message,
+
+                progress
+
+            )
+
+
 
 
 
@@ -55,26 +69,11 @@ class Pipeline:
     def run(self):
 
 
-        print("=" * 50)
-
-        print(
-            "DramaTool 自动整理"
+        self.log(
+            "开始分析项目...",
+            10
         )
 
-        print("=" * 50)
-
-
-
-        # ======================
-        # 分析项目
-        # ======================
-
-
-        print()
-
-        print(
-            "开始分析项目..."
-        )
 
 
         analyzer = Analyzer(
@@ -84,154 +83,176 @@ class Pipeline:
         )
 
 
-        self.project = analyzer.analyze()
+        project = analyzer.analyze()
 
 
-        print(
-            "分析完成"
+
+        self.log(
+
+            "分析完成",
+
+            20
+
         )
 
 
-        print(
-            f"项目: {self.project.name}"
+        self.log(
+
+            f"项目:{project.name}",
+
+            None
+
         )
 
 
-        print(
-            f"原始集数: {self.project.original_count}"
+        self.log(
+
+            f"原始集数:{project.original_count}",
+
+            None
+
         )
 
 
-        print(
-            f"最终集数: {self.project.final_count}"
+        self.log(
+
+            f"最终集数:{project.final_count}",
+
+            None
+
         )
 
 
 
 
 
-        # ======================
-        # 生成映射
-        # ======================
 
 
-        print()
+        # =====================
+        # 映射
+        # =====================
 
-        print(
-            "生成集数映射..."
+
+        self.log(
+
+            "生成集数映射...",
+
+            30
+
         )
+
 
 
         mapper = Mapper()
 
 
-        self.mapping = mapper.generate(
+        mapper.generate(
 
-            self.project
+            project
 
         )
 
 
-        print(
-            "映射完成"
+        self.log(
+
+            "映射完成",
+
+            40
+
         )
 
 
 
 
 
-        # ======================
-        # 检查项目
-        # ======================
 
 
-        print()
 
-        print(
-            "检查项目..."
+        # =====================
+        # 检查
+        # =====================
+
+
+        self.log(
+
+            "检查项目...",
+
+            50
+
         )
+
 
 
         checker = Checker()
 
 
-        self.check_result = checker.check(
 
-            self.project
+        check_result = checker.check(
+
+            project
 
         )
 
 
-        print(
-            "检查完成"
+        self.log(
+
+            "检查完成",
+
+            60
+
         )
 
 
 
-        # ======================
-        # 有错误停止
-        # ======================
 
 
-        if self.check_result["errors"]:
+
+        # 错误停止
+
+        if check_result["errors"]:
 
 
-            print()
+            self.log(
 
-            print(
-                "================"
-            )
+                "发现错误，停止整理",
 
-            print(
-                "发现错误，停止整理"
-            )
+                60
 
-            print(
-                "================"
             )
 
 
-            for error in self.check_result["errors"]:
+            for item in check_result["errors"]:
 
 
-                print()
+                self.log(
 
-                print(
-                    "版本:",
-                    error.get(
-                        "version"
-                    )
+                    f'{item["version"]} 缺少:{item["missing"]}',
+
+                    None
+
                 )
 
-
-                print(
-                    "缺少:",
-                    error.get(
-                        "missing"
-                    )
-                )
 
 
             return {
 
-
                 "project":
-                self.project,
 
-
-                "mapping":
-                self.mapping,
+                project,
 
 
                 "check":
-                self.check_result,
+
+                check_result,
 
 
                 "output":
+
                 None,
 
 
                 "report":
+
                 None
 
             }
@@ -241,82 +262,107 @@ class Pipeline:
 
 
 
-        # ======================
-        # 文件整理
-        # ======================
 
 
-        print()
 
-        print(
-            "开始整理文件..."
+        # =====================
+        # 整理
+        # =====================
+
+
+        self.log(
+
+            "开始整理文件...",
+
+            70
+
         )
 
 
-        merger = Merger()
+        merger = Merger(
+            callback=self.callback
+)
+
 
 
         self.output_path = merger.merge(
 
-            self.project
+            project
 
         )
 
 
-        print()
 
-        print(
-            "整理完成:"
+        self.log(
+
+            "文件整理完成",
+
+            85
+
         )
 
 
-        print(
-            self.output_path
+
+
+
+
+
+
+        # =====================
+        # 报告
+        # =====================
+
+
+        self.log(
+
+            "生成报告...",
+
+            90
+
         )
 
 
 
-
-
-        # ======================
-        # 生成报告
-        # ======================
-
-
-        print()
-
-        print(
-            "生成报告..."
-        )
-
-
-        report = Report()
-
-
-        self.report_path = report.generate(
-
-            self.project,
-
-            self.mapping,
-
-            self.check_result,
+        report = Report(
 
             self.output_path
 
         )
 
 
-        print()
+        report.generate(
 
-        print(
-            "报告生成完成:"
+            project,
+
+            check_result
+
         )
 
 
-        print(
-            self.report_path
+
+        self.report_path = (
+
+            Path(
+
+                self.output_path
+
+            )
+
+            /
+
+            "report"
+
         )
 
+
+
+        self.log(
+
+            "全部完成",
+
+            100
+
+        )
 
 
 
@@ -324,22 +370,22 @@ class Pipeline:
 
 
             "project":
-            self.project,
 
-
-            "mapping":
-            self.mapping,
+            project,
 
 
             "check":
-            self.check_result,
+
+            check_result,
 
 
             "output":
+
             self.output_path,
 
 
             "report":
+
             self.report_path
 
         }

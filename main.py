@@ -1,7 +1,8 @@
 import tkinter as tk
-from tkinter import filedialog, messagebox, scrolledtext
+from tkinter import filedialog, messagebox
+from tkinter import ttk
 
-from pathlib import Path
+import threading
 import os
 
 from src.core.pipeline import Pipeline
@@ -20,37 +21,39 @@ class DramaToolApp:
         )
 
         self.root.geometry(
-            "700x500"
+            "900x650"
         )
 
 
         self.project_path = None
+
+        self.output_path = None
 
 
         self.create_ui()
 
 
 
-
-
     def create_ui(self):
 
 
-        frame = tk.Frame(
+        top = tk.Frame(
             self.root
         )
 
-        frame.pack(
-            pady=10
+        top.pack(
+            pady=20
         )
 
 
 
         self.path_label = tk.Label(
 
-            frame,
+            top,
 
-            text="未选择项目"
+            text="请选择项目",
+
+            width=70
 
         )
 
@@ -65,18 +68,15 @@ class DramaToolApp:
 
 
 
-        btn = tk.Button(
+        tk.Button(
 
-            frame,
+            top,
 
             text="选择项目",
 
-            command=self.select_folder
+            command=self.select_project
 
-        )
-
-
-        btn.pack(
+        ).pack(
 
             side=tk.LEFT
 
@@ -86,7 +86,8 @@ class DramaToolApp:
 
 
 
-        start_btn = tk.Button(
+
+        self.start_btn = tk.Button(
 
             self.root,
 
@@ -101,7 +102,7 @@ class DramaToolApp:
         )
 
 
-        start_btn.pack(
+        self.start_btn.pack(
 
             pady=10
 
@@ -111,24 +112,86 @@ class DramaToolApp:
 
 
 
-        self.log = scrolledtext.ScrolledText(
+
+        self.progress = ttk.Progressbar(
 
             self.root,
 
-            width=80,
+            length=700,
 
-            height=20
+            mode="determinate"
 
         )
 
 
-        self.log.pack(
-
-            padx=10,
+        self.progress.pack(
 
             pady=10
 
         )
+
+
+
+        self.status = tk.Label(
+
+            self.root,
+
+            text="等待操作"
+
+        )
+
+
+        self.status.pack()
+
+
+
+
+
+
+        self.log_box = tk.Text(
+
+            self.root,
+
+            height=25
+
+        )
+
+
+        self.log_box.pack(
+
+            fill=tk.BOTH,
+
+            expand=True,
+
+            padx=20,
+
+            pady=10
+
+        )
+
+
+
+
+
+
+
+    def select_project(self):
+
+
+        path = filedialog.askdirectory()
+
+
+        if path:
+
+
+            self.project_path = path
+
+
+            self.path_label.config(
+
+                text=path
+
+            )
 
 
 
@@ -137,65 +200,58 @@ class DramaToolApp:
 
 
     def write_log(
-        self,
-        text
+
+            self,
+
+            message,
+
+            progress=None
+
     ):
 
 
-        self.log.insert(
+        def update():
 
-            tk.END,
 
-            text + "\n"
+            if progress is not None:
+
+
+                self.progress["value"] = progress
+
+
+                self.status.config(
+
+                    text=f"当前进度:{progress}%"
+
+                )
+
+
+
+            self.log_box.insert(
+
+                tk.END,
+
+                message + "\n"
+
+            )
+
+
+            self.log_box.see(
+
+                tk.END
+
+            )
+
+
+
+        self.root.after(
+
+            0,
+
+            update
 
         )
 
-
-        self.log.see(
-
-            tk.END
-
-        )
-
-
-        self.root.update()
-
-
-
-
-
-
-    def select_folder(self):
-
-
-        path = filedialog.askdirectory()
-
-
-
-        if path:
-
-
-            self.project_path = Path(
-
-                path
-
-            )
-
-
-            self.path_label.config(
-
-                text=str(path)
-
-            )
-
-
-            self.write_log(
-
-                "选择项目: "
-
-                + str(path)
-
-            )
 
 
 
@@ -213,7 +269,7 @@ class DramaToolApp:
 
                 "提示",
 
-                "请先选择项目目录"
+                "请先选择项目"
 
             )
 
@@ -222,7 +278,17 @@ class DramaToolApp:
 
 
 
-        self.log.delete(
+        self.start_btn.config(
+
+            state=tk.DISABLED
+
+        )
+
+
+        self.progress["value"]=0
+
+
+        self.log_box.delete(
 
             "1.0",
 
@@ -232,82 +298,120 @@ class DramaToolApp:
 
 
 
-        self.write_log(
+        threading.Thread(
 
-            "开始执行..."
+            target=self.run_pipeline
 
-        )
+        ).start()
 
 
+
+
+
+
+
+    def run_pipeline(self):
 
 
         try:
 
 
-
             pipeline = Pipeline(
 
-                self.project_path
+                self.project_path,
+
+                callback=self.write_log
 
             )
-
 
 
             result = pipeline.run()
 
 
 
+            if result["output"]:
 
 
-            # ======================
-            # 检查失败
-            # ======================
+                self.output_path = result["output"]
 
 
-            if not result["output"]:
 
+                self.write_log(
 
-                self.show_error_window(
+                    "整理成功",
 
-                    result["project"],
-
-                    result["check"]["errors"]
+                    100
 
                 )
 
 
-                return
 
+                self.root.after(
 
+                    0,
 
-
-
-            messagebox.showinfo(
-
-                "完成",
-
-                "整理完成\n\n"
-
-                + str(
-
-                    result["output"]
+                    self.show_complete_window
 
                 )
 
-            )
 
 
+            else:
+
+
+                self.root.after(
+
+                    0,
+
+                    lambda:
+
+                    messagebox.showwarning(
+
+                        "整理失败",
+
+                        "项目检查未通过，请查看日志"
+
+                    )
+
+                )
 
 
 
         except Exception as e:
 
 
-            messagebox.showerror(
+            self.root.after(
 
-                "错误",
+                0,
 
-                str(e)
+                lambda:
+
+                messagebox.showerror(
+
+                    "运行错误",
+
+                    str(e)
+
+                )
+
+            )
+
+
+
+        finally:
+
+
+            self.root.after(
+
+                0,
+
+                lambda:
+
+                self.start_btn.config(
+
+                    state=tk.NORMAL
+
+                )
 
             )
 
@@ -319,15 +423,7 @@ class DramaToolApp:
 
 
 
-    def show_error_window(
-
-            self,
-
-            project,
-
-            errors
-
-    ):
+    def show_complete_window(self):
 
 
         win = tk.Toplevel(
@@ -339,39 +435,59 @@ class DramaToolApp:
 
         win.title(
 
-            "项目检查失败"
+            "整理完成"
 
         )
 
 
         win.geometry(
 
-            "550x450"
+            "500x220"
+
+        )
+
+
+        win.resizable(
+
+            False,
+
+            False
 
         )
 
 
 
-        title = tk.Label(
+        tk.Label(
 
             win,
 
-            text="发现缺失文件，请补齐后重新执行",
+            text="✅ 整理完成！",
 
             font=(
 
-                "微软雅黑",
+                "Microsoft YaHei",
 
-                12,
-
-                "bold"
+                18
 
             )
+
+        ).pack(
+
+            pady=20
 
         )
 
 
-        title.pack(
+
+        tk.Label(
+
+            win,
+
+            text=self.output_path,
+
+            wraplength=450
+
+        ).pack(
 
             pady=10
 
@@ -380,174 +496,67 @@ class DramaToolApp:
 
 
 
+        btn_frame = tk.Frame(
+
+            win
+
+        )
 
 
-        for error in errors:
+        btn_frame.pack(
 
+            pady=20
 
-
-            frame = tk.Frame(
-
-                win,
-
-                relief="groove",
-
-                borderwidth=1
-
-            )
-
-
-            frame.pack(
-
-                fill="x",
-
-                padx=20,
-
-                pady=8
-
-            )
+        )
 
 
 
 
-            missing_text = ""
+        tk.Button(
 
+            btn_frame,
 
+            text="打开目录",
 
-            for ep in error["missing"]:
+            width=15,
 
+            command=lambda:
 
-                missing_text += (
+            os.startfile(
 
-                    f"第{int(ep):02d}集\n"
-
-                )
-
-
-
-
-            label = tk.Label(
-
-                frame,
-
-                text=(
-
-                    "❌ "
-
-                    + error["version"]
-
-                    + "\n\n缺少:\n"
-
-                    + missing_text
-
-                ),
-
-                justify="left",
-
-                anchor="w"
+                self.output_path
 
             )
 
+        ).pack(
 
-            label.pack(
+            side=tk.LEFT,
 
-                side="left",
+            padx=20
 
-                padx=10,
-
-                pady=10
-
-            )
+        )
 
 
 
 
 
+        tk.Button(
 
-            def open_folder(
-
-                    version=error["version"]
-
-            ):
-
-
-                folder = Path(
-
-                    project.root_path
-
-                ) / version
-
-
-
-
-                if folder.exists():
-
-
-                    os.startfile(
-
-                        folder
-
-                    )
-
-
-                else:
-
-
-                    messagebox.showwarning(
-
-                        "提示",
-
-                        "目录不存在"
-
-                    )
-
-
-
-
-
-
-            btn = tk.Button(
-
-                frame,
-
-                text="打开目录",
-
-                command=open_folder
-
-            )
-
-
-            btn.pack(
-
-                side="right",
-
-                padx=10
-
-            )
-
-
-
-
-
-
-
-        close = tk.Button(
-
-            win,
+            btn_frame,
 
             text="关闭",
 
+            width=15,
+
             command=win.destroy
 
+        ).pack(
+
+            side=tk.LEFT,
+
+            padx=20
+
         )
-
-
-        close.pack(
-
-            pady=15
-
-        )
-
 
 
 

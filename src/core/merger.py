@@ -4,27 +4,19 @@ import shutil
 
 
 class Merger:
+
+
     """
     DramaTool 文件整理模块
 
-    功能:
 
-    读取:
-        Project
+    增加:
+        callback(message, progress)
 
-    根据:
-        episode_mapping
-
-    生成:
-
-        项目名_拆集版
-
-            ├──00成片
-            ├──1.有音乐无字幕版本
-            ├──2.无音乐无字幕无bgm
-            └──3.字幕文件
+    用于GUI实时显示进度
 
     """
+
 
 
     VERSIONS = [
@@ -41,17 +33,55 @@ class Merger:
 
 
 
-    def __init__(self):
-
-        pass
 
 
+    def __init__(self, callback=None):
 
-    def merge(self, project):
 
-        """
-        开始整理
-        """
+        self.callback = callback
+
+
+
+
+
+    def log(
+
+            self,
+
+            message,
+
+            progress=None
+
+    ):
+
+
+        print(message)
+
+
+        if self.callback:
+
+
+            self.callback(
+
+                message,
+
+                progress
+
+            )
+
+
+
+
+
+
+
+    def merge(
+
+            self,
+
+            project
+
+    ):
 
 
         root_path = project.root_path
@@ -59,8 +89,11 @@ class Merger:
 
         if not root_path:
 
+
             raise Exception(
+
                 "项目路径为空"
+
             )
 
 
@@ -77,25 +110,60 @@ class Merger:
 
 
 
-        print(
-            "输出目录:",
-            output_path
+        self.log(
+
+            f"输出目录:{output_path}",
+
+            70
+
         )
 
 
 
         self.create_dirs(
+
             output_path
+
         )
+
+
+
+
+        total = len(self.VERSIONS)
+
+        current = 0
 
 
 
         for version in self.VERSIONS:
 
 
-            print(
-                "正在处理:",
-                version
+            current += 1
+
+
+
+            progress = (
+
+                70
+
+                +
+
+                int(
+
+                    current / total * 15
+
+                )
+
+            )
+
+
+
+            self.log(
+
+                f"正在处理:{version}",
+
+                progress
+
             )
 
 
@@ -112,8 +180,12 @@ class Merger:
 
 
 
-        print(
-            "整理完成"
+        self.log(
+
+            "文件整理完成",
+
+            85
+
         )
 
 
@@ -123,9 +195,14 @@ class Merger:
 
 
 
+
+
     def create_dirs(
+
             self,
+
             output_path
+
     ):
 
 
@@ -153,6 +230,11 @@ class Merger:
 
 
 
+
+
+
+
+
     def merge_version(
 
             self,
@@ -164,6 +246,7 @@ class Merger:
             output_path
 
     ):
+
 
 
         files = self.collect_files(
@@ -186,7 +269,30 @@ class Merger:
 
 
 
+        total = len(
+
+            project.episode_mapping
+
+        )
+
+
+        index = 0
+
+
+
         for final_index, source_name in project.episode_mapping.items():
+
+
+            index += 1
+
+
+
+            progress = 70 + int(
+
+                index / total * 15
+
+            )
+
 
 
             source_file = files.get(
@@ -196,18 +302,21 @@ class Merger:
             )
 
 
+
             if not source_file:
 
 
-                print(
+                self.log(
 
-                    "缺少文件:",
+                    f"缺少文件:{source_name}",
 
-                    source_name
+                    progress
 
                 )
 
                 continue
+
+
 
 
 
@@ -247,17 +356,17 @@ class Merger:
 
 
 
-            print(
+            self.log(
 
-                "复制:",
+                f"复制:{source_name} → {target_name}",
 
-                source_name,
-
-                "→",
-
-                target_name
+                progress
 
             )
+
+
+
+
 
 
 
@@ -274,26 +383,11 @@ class Merger:
 
     ):
 
-        """
-        收集某个版本所有文件
-
-        返回:
-
-        {
-            "01":路径,
-            "03-1":路径
-        }
-
-        """
-
 
         result = {}
 
 
 
-        # =====================
-        # 原始文件
-        # =====================
 
         if version in project.original_videos:
 
@@ -311,9 +405,6 @@ class Merger:
 
 
 
-        # =====================
-        # 拆集文件
-        # =====================
 
         if version in project.split_videos:
 
