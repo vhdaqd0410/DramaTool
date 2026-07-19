@@ -1,12 +1,20 @@
 class Preview:
     """
-    整理预览生成器 V2
+    DramaTool 整理预览
 
-    功能:
-    1. 显示项目基本信息
-    2. 显示拆集关系
-    3. 显示最终生成计划
-    4. 显示来源文件路径
+    显示:
+    1. 项目信息
+    2. 拆集关系
+    3. 最终编号与来源对应关系
+
+    示例:
+
+    最终名称       来源
+
+    01             01
+    02             02
+    03             03-1
+    04             03-2
     """
 
 
@@ -44,23 +52,20 @@ class Preview:
             f"项目:{project.name}"
         )
 
-
         lines.append(
             f"原始集数:{project.original_count}"
         )
 
-
         lines.append(
             f"最终集数:{project.final_count}"
         )
-
 
         lines.append("")
 
 
 
         # =====================
-        # 拆集信息
+        # 拆集关系
         # =====================
 
         lines.append(
@@ -70,7 +75,6 @@ class Preview:
         lines.append("")
 
 
-
         if project.split_map:
 
 
@@ -78,22 +82,23 @@ class Preview:
                 project.split_map.items()
             ):
 
-                lines.append(
-                    f"第{ep:02d}集:"
+                split_result = ",".join(
+                    [
+                        f"{ep:02d}-{p}"
+                        for p in parts
+                    ]
                 )
 
 
-                for part in parts:
-
-                    lines.append(
-                        f"  ├── {ep:02d}-{part}"
-                    )
+                lines.append(
+                    f"{ep:02d} → {split_result}"
+                )
 
 
         else:
 
             lines.append(
-                "  无拆集"
+                "无拆集"
             )
 
 
@@ -103,119 +108,38 @@ class Preview:
 
 
         # =====================
-        # 最终生成计划
+        # 最终生成
         # =====================
 
         lines.append(
-            "============================"
-        )
-
-        lines.append(
-            "最终生成计划:"
-        )
-
-        lines.append(
-            "============================"
+            "最终生成:"
         )
 
         lines.append("")
 
+        lines.append(
+            "最终名称        来源"
+        )
 
-
-        # 获取来源文件
-
-        source_map = self.build_source_map(
-            project
+        lines.append(
+            "----------------------------"
         )
 
 
 
-        for _, target in project.episode_mapping.items():
+        for final_index, source in project.episode_mapping.items():
 
 
-            source = source_map.get(
-                target,
-                "未知来源"
+            # 最终编号
+            final_name = (
+                f"{final_index:02d}"
             )
 
 
             lines.append(
-                f"{target}.mp4"
+                f"{final_name:<16}{source}"
             )
-
-
-            lines.append(
-                f"  来源: {source}"
-            )
-
-
-            lines.append("")
 
 
 
         return "\n".join(lines)
-
-
-
-
-
-    def build_source_map(
-        self,
-        project
-    ):
-
-        """
-        建立:
-
-        最终名称
-            ↓
-        来源文件
-
-        """
-
-
-        result = {}
-
-
-
-        # =====================
-        # 原始文件
-        # =====================
-
-        for version, episodes in project.original_videos.items():
-
-
-            for ep in episodes:
-
-
-                name = (
-                    f"{ep.original_episode:02d}"
-                )
-
-
-                result[name] = ep.file_path
-
-
-
-
-
-        # =====================
-        # 拆集文件
-        # =====================
-
-        for version, episodes in project.split_videos.items():
-
-
-            for ep in episodes:
-
-
-                name = (
-                    f"{ep.original_episode:02d}-{ep.part}"
-                )
-
-
-                result[name] = ep.file_path
-
-
-
-        return result
