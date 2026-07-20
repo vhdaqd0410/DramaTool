@@ -4,8 +4,23 @@ import os
 import subprocess
 import threading
 import tkinter as tk
+import winsound
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
+
+
+def parse_dropped_path(raw_text: str) -> Path | None:
+    text = raw_text.strip().strip("\"'")
+    if not text:
+        return None
+    candidate = Path(text)
+    if candidate.exists():
+        return candidate
+    if text.startswith("file://"):
+        parsed = Path(text[7:])
+        if parsed.exists():
+            return parsed
+    return None
 
 from core.analyzer import build_rename_plan
 from core.merger import rename_files
@@ -29,6 +44,7 @@ class MainWindow:
         self.root.title("DramaTool")
         self.root.geometry("760x620")
         self.root.minsize(680, 520)
+        self._enable_drag_drop()
 
         self.status_var = tk.StringVar(value="准备就绪，可选择剧集目录开始处理。")
         self.path_var = tk.StringVar(value="")
@@ -92,6 +108,13 @@ class MainWindow:
         ttk.Button(button_frame, text="保存日志", command=self.save_log).pack(side=tk.LEFT, padx=8)
         ttk.Button(button_frame, text="退出", command=self.root.destroy).pack(side=tk.LEFT, padx=8)
 
+    def _enable_drag_drop(self) -> None:
+        try:
+            self.root.drop_target_register("DND_Files")
+            self.root.dnd_bind("<<Drop>>", self._handle_drop)
+        except (AttributeError, tk.TclError):
+            return
+
     def choose_directory(self) -> None:
         path = filedialog.askdirectory(title="选择剧集目录")
         if path:
@@ -103,6 +126,24 @@ class MainWindow:
         path = filedialog.askdirectory(title="选择输出目录")
         if path:
             self.output_dir_var.set(path)
+
+    def _handle_drop(self, event: tk.Event) -> None:
+        dropped_path = parse_dropped_path(event.data)
+        if dropped_path is None:
+            messagebox.showwarning("提示", "请拖入一个存在的文件夹或文件。")
+            return
+
+        if dropped_path.is_file():
+            dropped_path = dropped_path.parent
+
+        self.path_var.set(str(dropped_path))
+        self.status_var.set(f"已通过拖拽读取目录：{dropped_path}")
+
+        answer = messagebox.askyesno("拖拽处理", "是否直接开始重命名？\n\n选择“是”会直接执行重命名，选择“否”只进行扫描预览。")
+        if answer:
+            self.execute_rename()
+        else:
+            self.scan_directory()
 
     def scan_directory(self) -> None:
         folder = Path(self.path_var.get())
@@ -227,6 +268,7 @@ class MainWindow:
             self.log_text.insert(tk.END, f"完成：成功 {self.success_count}，失败 {self.error_count}。\n")
             self.summary_var.set(f"完成：成功 {self.success_count}，失败 {self.error_count}")
             self._open_output_directory()
+            self._show_completion_dialog()
         self.set_busy(False)
 
     def toggle_pause(self) -> None:
@@ -271,6 +313,25 @@ class MainWindow:
                 subprocess.Popen(["xdg-open", str(output_dir)])
         except OSError:
             pass
+
+    def _play_completion_sound(self) -> None:
+        if self.error_count > 0:
+            winsound.PlaySound("SystemAsterisk", winsound.SND_ALIAS | winsound.SND_ASYNC)
+        else:
+            winsound.PlaySound("SystemExclamation", winsound.SND_ALIAS | winsound.SND_ASYNC)
+
+    def _show_completion_dialog(self) -> None:
+        self._play_completion_sound()
+        if self.success_count == 0 and self.error_count == 0:
+            messagebox.showinfo("处理完成", "处理已完成。")
+            return
+
+        should_save = messagebox.askyesno(
+            "处理完成",
+            f"处理已完成。\n成功 {self.success_count} 个，失败 {self.error_count} 个。\n\n是否保存本次日志？",
+        )
+        if should_save:
+            self.save_log()
 
     def save_log(self) -> None:
         log_path = filedialog.asksaveasfilename(
