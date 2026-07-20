@@ -42,17 +42,17 @@ def build_target_path(source: Path, episode: int, output_dir: Path) -> Path:
     return output_dir / f"{new_stem}{suffix}"
 
 
-def build_rename_plan(folder: Path) -> List[RenameItem]:
+def build_rename_plan(folder: Path, output_dir: Path | None = None) -> List[RenameItem]:
     items: List[RenameItem] = []
     version_dirs = [p for p in sorted(folder.iterdir()) if p.is_dir()]
     if not version_dirs:
         version_dirs = [folder]
 
-    output_dir = folder.with_name(f"{folder.name}_renamed")
-    output_dir.mkdir(parents=True, exist_ok=True)
+    resolved_output_dir = output_dir or folder.with_name(f"{folder.name}_renamed")
+    resolved_output_dir.mkdir(parents=True, exist_ok=True)
 
     for version_dir in version_dirs:
-        version_output_dir = output_dir / version_dir.name
+        version_output_dir = resolved_output_dir / version_dir.name
         version_output_dir.mkdir(parents=True, exist_ok=True)
 
         version_items: List[RenameItem] = []
@@ -65,7 +65,7 @@ def build_rename_plan(folder: Path) -> List[RenameItem]:
 
         for index, item in enumerate(version_items, start=1):
             relative_path = item.source.relative_to(folder)
-            target_dir = output_dir / relative_path.parent
+            target_dir = resolved_output_dir / relative_path.parent
             target_dir.mkdir(parents=True, exist_ok=True)
             item.target = build_target_path(item.source, index, target_dir)
             item.episode = index
