@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 import threading
 import tkinter as tk
@@ -9,22 +10,10 @@ from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
 
-def parse_dropped_path(raw_text: str) -> Path | None:
-    text = raw_text.strip().strip("\"'")
-    if not text:
-        return None
-    candidate = Path(text)
-    if candidate.exists():
-        return candidate
-    if text.startswith("file://"):
-        parsed = Path(text[7:])
-        if parsed.exists():
-            return parsed
-    return None
-
 from core.analyzer import build_rename_plan
-from core.merger import rename_files
 from core.preview import render_preview
+from core.task import run_rename_task
+from utils.fileutil import parse_dropped_path
 
 
 def next_pause_state(paused: bool) -> tuple[bool, str]:
@@ -152,7 +141,7 @@ class MainWindow:
             return
 
         output_dir = Path(self.output_dir_var.get()).expanduser() if self.output_dir_var.get() else None
-        items = build_rename_plan(folder, output_dir=output_dir)
+        items = build_rename_plan(folder, output_dir=output_dir, mode="split_merge")
         self.preview_text.delete("1.0", tk.END)
         self.preview_text.insert(tk.END, render_preview(items))
         self.log_text.delete("1.0", tk.END)
@@ -175,7 +164,7 @@ class MainWindow:
             return
 
         output_dir = Path(self.output_dir_var.get()).expanduser() if self.output_dir_var.get() else None
-        items = build_rename_plan(folder, output_dir=output_dir)
+        items = build_rename_plan(folder, output_dir=output_dir, mode="split_merge")
         if not items:
             messagebox.showinfo("提示", "当前目录没有可执行的重命名项。")
             return
@@ -210,39 +199,34 @@ class MainWindow:
         self.rename_thread.start()
 
     def _run_rename_worker(self) -> None:
-        for index, pair in enumerate(self.rename_pairs, start=1):
-            if self.cancel_requested:
-                break
-
-            while not self.pause_event.is_set():
-                if self.cancel_requested or not self.is_renaming:
-                    return
-                self.pause_event.wait(0.1)
-
-            if self.cancel_requested or not self.is_renaming:
-                break
-
-            source, target = pair
-            try:
-                rename_files([pair])
+        def on_progress(index: int, source: Path, target: Path, success: bool, error: Exception | None) -> None:
+            if success:
                 self.success_count += 1
-                self.root.after(0, self._update_progress, index, source, target, True, None)
-            except Exception as exc:
+            else:
                 self.error_count += 1
-                self.root.after(0, self._update_progress, index, source, target, False, exc)
+            self.root.after(0, self._update_progress, index, source, target, success, error)
 
-        if self.cancel_requested:
-            self.root.after(0, self._finish_rename, True)
-        else:
-            self.root.after(0, self._finish_rename, False)
+        def on_complete(cancelled: bool) -> None:
+            self.root.after(0, self._finish_rename, cancelled)
+
+        run_rename_task(
+            pairs=self.rename_pairs,
+            should_cancel=lambda: self.cancel_requested or not self.is_renaming,
+            should_pause=lambda: not self.pause_event.is_set() and not self.cancel_requested and self.is_renaming,
+            on_progress=on_progress,
+            on_complete=on_complete,
+        )
 
     def _update_progress(self, index: int, source: Path, target: Path, success: bool, error: Exception | None) -> None:
         total = self.total_files
         self.processed_count = index
+        version = source.parent.name
+        source_display = f"{version}/{source.name}"
+        split_tag = " ← 拆集" if "-" in source.stem else ""
         if success:
-            self.log_text.insert(tk.END, f"[{index}/{total}] 成功: {source.name} -> {target.name}\n")
+            self.log_text.insert(tk.END, f"  [{index}/{total}] {source_display} -> {target.name}{split_tag}\n")
         else:
-            self.log_text.insert(tk.END, f"[{index}/{total}] 失败: {source.name} -> {target.name} ({error})\n")
+            self.log_text.insert(tk.END, f"  [{index}/{total}] 失败: {source_display} -> {target.name} ({error})\n")
         self.log_text.see(tk.END)
         percent = int(index / total * 100) if total else 100
         self.progress_var.set(percent)
@@ -267,6 +251,7 @@ class MainWindow:
             self.status_var.set(f"重命名完成。{build_progress_text(self.processed_count, self.total_files)}")
             self.log_text.insert(tk.END, f"完成：成功 {self.success_count}，失败 {self.error_count}。\n")
             self.summary_var.set(f"完成：成功 {self.success_count}，失败 {self.error_count}")
+            self._copy_screenshots_folder()
             self._open_output_directory()
             self._show_completion_dialog()
         self.set_busy(False)
@@ -316,9 +301,22 @@ class MainWindow:
 
     def _play_completion_sound(self) -> None:
         if self.error_count > 0:
-            winsound.PlaySound("SystemAsterisk", winsound.SND_ALIAS | winsound.SND_ASYNC)
-        else:
             winsound.PlaySound("SystemExclamation", winsound.SND_ALIAS | winsound.SND_ASYNC)
+        else:
+            winsound.PlaySound("SystemAsterisk", winsound.SND_ALIAS | winsound.SND_ASYNC)
+
+    def _copy_screenshots_folder(self) -> None:
+        source_dir = Path(self.path_var.get()) / "4.工程截图"
+        if not source_dir.is_dir():
+            return
+        target_dir = self.last_output_dir / "4.工程截图"
+        try:
+            shutil.copytree(source_dir, target_dir, dirs_exist_ok=True)
+            self.log_text.insert(tk.END, "已复制「4.工程截图」文件夹。\n")
+            self.log_text.see(tk.END)
+        except OSError as exc:
+            self.log_text.insert(tk.END, f"复制「4.工程截图」失败：{exc}\n")
+            self.log_text.see(tk.END)
 
     def _show_completion_dialog(self) -> None:
         self._play_completion_sound()

@@ -3,7 +3,7 @@ from typing import List, Sequence, Tuple
 import shutil
 
 
-def rename_file(source: Path | str, target: Path | str) -> Path:
+def copy_file(source: Path | str, target: Path | str) -> Path:
     """Copy a file to a target path without changing the source file.
 
     The target may be in the same directory as the source. In that case,
@@ -22,7 +22,7 @@ def rename_file(source: Path | str, target: Path | str) -> Path:
     return target_path
 
 
-def rename_files(pairs: Sequence[Tuple[Path | str, Path | str]]) -> List[Path]:
+def copy_files(pairs: Sequence[Tuple[Path | str, Path | str]]) -> List[Path]:
     """Copy a batch of files to new paths while preserving the originals."""
 
-    return [rename_file(source, target) for source, target in pairs]
+    return [copy_file(source, target) for source, target in pairs]
