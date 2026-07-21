@@ -6,3 +6,4 @@ release/
 temp/
 .idea/
 .vscode/
+config.json

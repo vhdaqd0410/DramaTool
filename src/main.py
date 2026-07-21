@@ -24,14 +24,14 @@ def run(headless: Optional[bool] = None) -> int:
         return 0
 
     try:
-        import tkinter as tk
+        import tkinterdnd2
         from ui.main_window import MainWindow
     except Exception as exc:  # pragma: no cover - 依赖环境差异
         print(f"无法创建界面，已切换到无界面模式：{exc}")
         return 0
 
     try:
-        root = tk.Tk()
+        root = tkinterdnd2.Tk()
         root.withdraw()
         root.update_idletasks()
         root.deiconify()

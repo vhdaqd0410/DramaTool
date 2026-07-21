@@ -1,3 +1,3 @@
 @echo off
-python src\main.py
-pause
+cd /d "%~dp0"
+start "" .venv\Scripts\pythonw.exe src\main.py
